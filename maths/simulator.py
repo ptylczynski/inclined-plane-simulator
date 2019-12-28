@@ -11,12 +11,27 @@ from maths.functions import Plane, Angle, Acceleration, Friction, Gravity
 
 
 class Simulator:
+    """
+    Main class of simulator. Simulation starts in point (start_point, *) and goes until
+    reaches (end_point, *) or makes number of iterations.
+    Time is not present in any part of simulation
+    """
     def __init__(self, step: float, iterations: int, start_point: float,  end_point: float):
+        """
+        :param step: value of one step in simulation
+        :param iterations: number of iterations to make
+        :param start_point: start position on X axis
+        :param end_point: end position on X axis
+        """
+
+        # SIMULATION VARS
         self.step: float = step
         self.xPos: float = start_point
         self.start_x = start_point
         self.end_x: float = end_point
         self.iterations: int = iterations
+
+        # PLOTTING VARS
         self.total_speed = 0
         self.fig: Figure = figure()
         self.axes: Axis = axes()
@@ -30,6 +45,9 @@ class Simulator:
         self.total_speed_graph = list()
         self.speed_diff_graph = list()
         self.acceleration_graph = list()
+        self.distance_in_one_step_graph = list()
+
+        # NUMERICAL FUNCTIONS
         self.plane: Plane = Plane('1')
         self.friction: Friction = Friction('1')
         self.gravity: Gravity = Gravity('1')
@@ -37,11 +55,13 @@ class Simulator:
         self.acceleration: Acceleration = Acceleration(self.gravity, self.friction, self.angle)
 
     def simulate(self):
+        # creating move animation
         anim = animation.FuncAnimation(self.fig, self.make_plot, init_func=self.init_plot,
                                        frames=self.iterations, interval=10, blit=False)
 
         anim.save("plot.mp4")
 
+        # creating static plots
         self.fig, self.axes = subplots(1, 1)
         self.axes.set_title("Total Speed")
         ylabel("Speed")
@@ -84,6 +104,13 @@ class Simulator:
         plot(self.x_graph, self.acceleration_graph)
         savefig("acceleration_graph.png")
 
+        self.fig, self.axes = subplots(1, 1)
+        self.axes.set_title("Distance in one step")
+        ylabel("Distance in one step")
+        xlabel("Position")
+        plot(self.x_graph, self.acceleration_graph)
+        savefig("distance_in_one_step.png")
+
     def init_plot(self):
         now = self.xPos
         iteration = 0
@@ -91,28 +118,37 @@ class Simulator:
         max_slope = -math.inf
         min_slope = math.inf
 
+        # loops until reaching max iteration or end position
         while iteration < self.iterations and now < self.end_x:
+            # calculate values of static functions
             self.x_graph.append(now)
             slope.append(self.plane[now])
             self.friction_graph.append(self.friction[now])
             self.gravity_graph.append(self.gravity[now])
             self.angle_graph.append(self.angle[now] * 360 / (2 * 3.14))
 
+            # find max and low values for animation graph
             max_slope = max(self.plane[now], max_slope)
             min_slope = min(self.plane[now], min_slope)
+
             now += self.step
             iteration += 1
 
+        # restrict axes
         self.axes = axes(
             xlim=(0.9 * self.start_x, 1.1 * min(now, self.end_x)),
             ylim=(0.9 * min_slope, 1.1 * max_slope)
         )
+        # create two plots, one as slope, second as marker to show current position of body on slope
         self.lines = [plot([], [])[0], plot([], [], marker="X")[0]]
-
-        self.last_point = [self.x_graph[0], slope[0]]
         self.lines[0].set_data(self.x_graph, slope)
         self.lines[1].set_data([], [])
 
+        # create variable containing previous position
+        self.last_point = [self.x_graph[0], slope[0]]
+
+        # reset list with x axis, sometimes size of axis for static functions, are different than
+        # dynamic ones
         self.x_graph = list()
 
         return self.lines
@@ -122,22 +158,25 @@ class Simulator:
             i, self.iterations
         ))
 
+        angle = self.angle[self.xPos]
+
         self.x_graph.append(self.xPos)
 
         acceleration = self.acceleration[self.xPos]
         self.acceleration_graph.append(acceleration)
-
-        angle = self.angle[self.xPos]
 
         speed_diff = acceleration * self.step
         self.speed_diff_graph.append(speed_diff)
 
         self.total_speed += speed_diff
         # clamping speed
+        # preserve body from moving backwards if it was stopped by friction, cuz
+        # friction is implemented as negative force and is summed with parallel component of net speed
         self.total_speed = max(self.total_speed, 0) if angle > 0 else min(self.total_speed, 0)
         self.total_speed_graph.append(self.total_speed)
 
         distance_covered = self.total_speed * self.step
+        self.distance_in_one_step_graph.append(distance_covered)
 
         print("Acceleration: {}\nSpeed: {}\nAngle: {}\nDistance in one move: {}"
               "\nGravity: {}\nFriction {}\nPosition (x,y) {}, {}\n"
@@ -153,12 +192,13 @@ class Simulator:
                 distance_covered * sin(-angle),
         ))
 
+        # xPos and self.last_point[0] holds this same value, but are used to different things, so they are still
+        # separated
         self.last_point[0] += distance_covered * cos(-angle)
         self.last_point[1] += distance_covered * sin(-angle)
-
         self.xPos += distance_covered * cos(angle)
-        self.axes.set_title("Frame: {}/{}".format(i, self.iterations))
 
+        self.axes.set_title("Frame: {}/{}".format(i, self.iterations))
         self.lines[1].set_data([self.last_point[0]], [self.last_point[1]])
 
         return self.lines, self.title
