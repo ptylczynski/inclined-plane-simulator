@@ -16,12 +16,13 @@ class Simulator:
     reaches (end_point, *) or makes number of iterations.
     Time is not present in any part of simulation
     """
-    def __init__(self, step: float, iterations: int, start_point: float,  end_point: float):
+    def __init__(self, step: float, iterations: int, start_point: float,  end_point: float, save_palace: str = ""):
         """
         :param step: value of one step in simulation
         :param iterations: number of iterations to make
         :param start_point: start position on X axis
         :param end_point: end position on X axis
+        :param save_palace: place to save figures, relative to pwd of calling script
         """
 
         # SIMULATION VARS
@@ -30,6 +31,7 @@ class Simulator:
         self.start_x = start_point
         self.end_x: float = end_point
         self.iterations: int = iterations
+        self.save_place: str = save_palace
 
         # PLOTTING VARS
         self.total_speed = 0
@@ -59,7 +61,7 @@ class Simulator:
         anim = animation.FuncAnimation(self.fig, self.make_plot, init_func=self.init_plot,
                                        frames=self.iterations, interval=10, blit=False)
 
-        anim.save("plot.mp4")
+        anim.save(self.save_place + "plot.mp4")
 
         # creating static plots
         self.fig, self.axes = subplots(1, 1)
@@ -67,49 +69,49 @@ class Simulator:
         ylabel("Speed")
         xlabel("Position")
         plot(self.x_graph, self.total_speed_graph)
-        savefig("total_speed_graph.png")
+        savefig(self.save_place + "total_speed_graph.png")
 
         self.fig, self.axes = subplots(1, 1)
         self.axes.set_title("Friction coefficient")
         ylabel("Friction coeff")
         xlabel("Position")
         plot(self.x_graph, self.friction_graph)
-        savefig("friction_graph.png")
+        savefig(self.save_place + "friction_graph.png")
 
         self.fig, self.axes = subplots(1, 1)
         self.axes.set_title("Gravity coefficient")
         ylabel("Gravity corff")
         xlabel("Position")
         plot(self.x_graph, self.gravity_graph)
-        savefig("gravity_graph.png")
+        savefig(self.save_place + "gravity_graph.png")
 
         self.fig, self.axes = subplots(1, 1)
         self.axes.set_title("Angle")
         ylabel("Angle (degrees)")
         xlabel("Position")
         plot(self.x_graph, self.angle_graph)
-        savefig("angle_graph.png")
+        savefig(self.save_place + "angle_graph.png")
 
         self.fig, self.axes = subplots(1, 1)
         self.axes.set_title("Speed difference")
         ylabel("Speed diff")
         xlabel("Position")
         plot(self.x_graph, self.speed_diff_graph)
-        savefig("speed_diff_graph.png")
+        savefig(self.save_place + "speed_diff_graph.png")
 
         self.fig, self.axes = subplots(1, 1)
         self.axes.set_title("Net acceleration")
         ylabel("Net Acceleration")
         xlabel("Position")
         plot(self.x_graph, self.acceleration_graph)
-        savefig("acceleration_graph.png")
+        savefig(self.save_place + "acceleration_graph.png")
 
         self.fig, self.axes = subplots(1, 1)
         self.axes.set_title("Distance in one step")
         ylabel("Distance in one step")
         xlabel("Position")
-        plot(self.x_graph, self.acceleration_graph)
-        savefig("distance_in_one_step.png")
+        plot(self.x_graph, self.distance_in_one_step_graph)
+        savefig(self.save_place + "distance_in_one_step.png")
 
     def init_plot(self):
         now = self.xPos
@@ -123,9 +125,7 @@ class Simulator:
             # calculate values of static functions
             self.x_graph.append(now)
             slope.append(self.plane[now])
-            self.friction_graph.append(self.friction[now])
-            self.gravity_graph.append(self.gravity[now])
-            self.angle_graph.append(self.angle[now] * 360 / (2 * 3.14))
+            print(iteration, now, self.angle[now])
 
             # find max and low values for animation graph
             max_slope = max(self.plane[now], max_slope)
@@ -158,6 +158,10 @@ class Simulator:
             i, self.iterations
         ))
 
+        self.friction_graph.append(self.friction[self.xPos])
+        self.gravity_graph.append(self.gravity[self.xPos])
+        self.angle_graph.append(self.angle[self.xPos] * 360 / (2 * 3.14))
+
         angle = self.angle[self.xPos]
 
         self.x_graph.append(self.xPos)
@@ -172,7 +176,7 @@ class Simulator:
         # clamping speed
         # preserve body from moving backwards if it was stopped by friction, cuz
         # friction is implemented as negative force and is summed with parallel component of net speed
-        self.total_speed = max(self.total_speed, 0) if angle > 0 else min(self.total_speed, 0)
+        self.total_speed = max(self.total_speed, 0) if angle >= 0 else min(self.total_speed, 0)
         self.total_speed_graph.append(self.total_speed)
 
         distance_covered = self.total_speed * self.step
