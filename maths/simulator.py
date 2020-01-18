@@ -7,7 +7,7 @@ from matplotlib.pyplot import subplots, figure, axes, show, plot, savefig, xlabe
 
 from math import cos, sin
 
-from maths.functions import Plane, Angle, Acceleration, Friction, Gravity
+from maths.functions import Plane, Angle, Friction, Gravity, GravityAcceleration, FrictionAcceleration
 
 
 class Simulator:
@@ -54,7 +54,8 @@ class Simulator:
         self.friction: Friction = Friction('1')
         self.gravity: Gravity = Gravity('1')
         self.angle: Angle = Angle(self.plane)
-        self.acceleration: Acceleration = Acceleration(self.gravity, self.friction, self.angle)
+        self.gravity_acceleration: GravityAcceleration = GravityAcceleration(self.gravity, self.friction, self.angle)
+        self.friction_acceleration: FrictionAcceleration = FrictionAcceleration(self.gravity, self.friction, self.angle)
 
     def simulate(self):
         # creating move animation
@@ -120,8 +121,9 @@ class Simulator:
         max_slope = -math.inf
         min_slope = math.inf
 
-        # loops until reaching max iteration or end position
-        while iteration < self.iterations and now < self.end_x:
+        # create figure for animation
+        # loops until reaching end position
+        while now < self.end_x:
             # calculate values of static functions
             self.x_graph.append(now)
             slope.append(self.plane[now])
@@ -136,7 +138,7 @@ class Simulator:
 
         # restrict axes
         self.axes = axes(
-            xlim=(0.9 * self.start_x, 1.1 * min(now, self.end_x)),
+            xlim=(0.9 * self.start_x, 1.1 * self.end_x),
             ylim=(0.9 * min_slope, 1.1 * max_slope)
         )
         # create two plots, one as slope, second as marker to show current position of body on slope
@@ -158,25 +160,45 @@ class Simulator:
             i, self.iterations
         ))
 
-        self.friction_graph.append(self.friction[self.xPos])
-        self.gravity_graph.append(self.gravity[self.xPos])
+        friction = self.friction[self.xPos]
+        gravity = self.gravity[self.xPos]
+        friction_acceleration = self.friction_acceleration[self.xPos]
+        gravity_acceleration = self.gravity_acceleration[self.xPos]
+
+        self.friction_graph.append(friction)
+        self.gravity_graph.append(gravity)
         self.angle_graph.append(self.angle[self.xPos] * 360 / (2 * 3.14))
 
         angle = self.angle[self.xPos]
 
         self.x_graph.append(self.xPos)
 
-        acceleration = self.acceleration[self.xPos]
+        if angle > 0:
+            if self.total_speed < 0:
+                acceleration = gravity_acceleration + friction_acceleration
+            else:
+                acceleration = friction_acceleration + gravity_acceleration
+                if acceleration < 0:
+                    acceleration = 0
+        elif angle < 0:
+            if self.total_speed > 0:
+                acceleration = gravity_acceleration - friction_acceleration
+            else:
+                acceleration = gravity_acceleration + friction_acceleration
+                if acceleration > 0:
+                    acceleration = 0
+
         self.acceleration_graph.append(acceleration)
 
         speed_diff = acceleration * self.step
         self.speed_diff_graph.append(speed_diff)
 
-        self.total_speed += speed_diff
         # clamping speed
         # preserve body from moving backwards if it was stopped by friction, cuz
         # friction is implemented as negative force and is summed with parallel component of net speed
-        self.total_speed = max(self.total_speed, 0) if angle >= 0 else min(self.total_speed, 0)
+
+        self.total_speed += speed_diff
+
         self.total_speed_graph.append(self.total_speed)
 
         distance_covered = self.total_speed * self.step
